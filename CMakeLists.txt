@@ -5,7 +5,7 @@ This file was created because the cmake system provided with fTetWild only build
     a static library that contains object files from fTetWild and all the libraries
     that fTetWild depends upon, such as igl, geogram, etc. Using this static
     library is undesirable because it happens to include object files from
-    libraries (e.g. igl and geogram) that we would probably like out application
+    libraries (e.g. igl and geogram) that we would probably like our application
     to link against. This almost certainly would lead to symbol redefinition
     errors.
 
@@ -22,7 +22,7 @@ This file was created because the cmake system provided with fTetWild only build
         omitting the object files from igl.a, geogram.a, etc. that are already
         embedded in fTetWild.a. This seems very messy.
    
-    Using the dynamic library provided by the generated build system:
+    Using the dynamic library provided by this file:
 
                      app.out
                       /   \
@@ -37,25 +37,39 @@ This file was created because the cmake system provided with fTetWild only build
 The content of this file was mostly sourced from the CMakeLists.txt file that
     accompanies the fTetWild repository.
 The fTetWild code relies upon macros to determine when special functionality, such
-    such as Intel thread building blocks, should be used. When this file is used
+    such as thread building blocks, should be used. When this file is used
     to generate the build system that is then used to build the dynamic library,
     the dynamic library is built with the following macros defined at compile
     time:
         FLOAT_TETWILD_USE_TBB
 
-The dynamic library produced is linked against the following dynamic libraries 
-    and header-only libraries: 
+The dependency tree is:
 
-    ****
-    TODO
-    ****
+    (DL = Dynamic Library)
+    (HO = Header Only Library)
+    (Anything without listed dependencies only depends on system libraries)
 
+    DL: fTetWild 
+        DL: Geogram                        
+        DL: GMP 
+        DL: Wenzel Jakob's tbb fork 
+        HO: IGL
+            DL: Eigen
+        HO: Jeremie Dumas' Json fork 
+        HO: spdlog
+        DL: System
+        DL: stdc++ 
 ]]
 
 cmake_minimum_required(VERSION 3.26)
 project(FloatTetwild LANGUAGES CXX C)
 
-# Using a more recent standard causes build-time errors.
+set(CMAKE_WARN_DEPRECATED OFF)
+
+# Using a more recent standard causes errors at build time. At the very least,
+#     the format library (which gets built but isn't actually included in the
+#     dynamic library) appears to use features that were available in C++11 
+#     but were then deprecated in C++17, etc.
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
@@ -88,7 +102,7 @@ option(LIBIGL_WITH_XML               "Use XML"                      OFF)
 
 # ******************************************************************************
 
-# Must come before dependencies are dealt with.
+# Must come before dependencies are downloaded and compiled. 
 # This ensures that TBB is downloaded and a target is created.
 option(FLOAT_TETWILD_ENABLE_TBB "Enable TBB" ON)
 
@@ -105,7 +119,6 @@ ENDIF()
 #                      Constructing the Dynamic Library 
 # ******************************************************************************
 
-# The dynamic library.
 add_library(${PROJECT_NAME} SHARED src/Logger.cpp src/external/WindingNumber.h)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_BINARY_DIR}/include)
@@ -121,12 +134,11 @@ target_link_libraries(${PROJECT_NAME}
 		      Threads::Threads
 		      json
 		      ${GMP_LIBRARIES}
+                      tbb::tbb
                      )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC tbb::tbb)
 target_compile_definitions(${PROJECT_NAME} PUBLIC FLOAT_TETWILD_USE_TBB)
 
-# Add more source files to the dynamic library.
 add_subdirectory(src)
 
 # ******************************************************************************
