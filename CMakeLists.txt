@@ -1,41 +1,51 @@
 #[[
 This file generates a build system that, when invoked, creates a dynamic library
     containing fTetWild.
+
 This file was created because the cmake system provided with fTetWild only builds
     a static library that contains object files from fTetWild and all the libraries
     that fTetWild depends upon, such as igl, geogram, etc. Using this static
     library is undesirable because it happens to include object files from
     libraries (e.g. igl and geogram) that we would probably like our application
-    to link against. This almost certainly would lead to symbol redefinition
-    errors.
+    to link against. But it links against pretty old versions of these libraries.
+    We will probably want to link against newer versions of these libraries.
 
     Using the static library as-provided by fTetWild:
 
                      app.out
                       /   \
-             fTetWild.a  igl.a, geogram.a, etc.
+            fTetWild_v0.a  igl_v3.a/.so, geogram_v3.a/.so, etc.
                   |
-        igl.a, geogram.a, etc.
+        igl_v0.a, geogram_v0.a, etc.
 
     This almost certainly leads to link-time errors due to symbol redefinition. 
-        I think that there is a convoluted way to get around this problem by
-        omitting the object files from igl.a, geogram.a, etc. that are already
-        embedded in fTetWild.a. This seems very messy.
    
     Using the dynamic library provided by this file:
 
                      app.out
                       /   \
-             fTetWild.so  igl.so, geogram.so, etc.
+             fTetWild.so  igl_v3.so, geogram_v3.so, etc.
                   |
-        igl.so, geogram.so, etc.
+    igl_v0.a/.so, geogram_v0.a/.so, etc.
 
-    This avoids symbol redefinition errors at link time. In fact, it also makes
-        it possible for the application to link against versions of the dynamic
-        libraries that are newer than those that fTetWild.so links against.
+    This avoids symbol redefinition errors at link time.
+
+    However, it turns out I was missing a critical detail: The API exposed
+        by fTetWild.so includes objects from its dependencies. For example,
+        the tetrahedralize() function requires objects from the Eigen
+        library to be passed to it. This is quite annoying. It means that
+        linking against newer versions of the libraries (e.g., igl_v3.so,
+        geogram_v3.so, etc.) may yield errors due to ABI incompatability -
+        if the content of an Eigen Vec3 changed between eigen_v3.so and
+        eigen_c0.so, then hard to debug runtime errors will result.
+    There is no good general solution to this problem. In this case, I've chosen
+        to modify the interface exposed by the subset of fTetWild that we want
+        to use so that it only depends on stdlib++. If the API provided by the
+        library was larger, I'm not sure what the best appraoch would be....
 
 The content of this file was mostly sourced from the CMakeLists.txt file that
     accompanies the fTetWild repository.
+
 The fTetWild code relies upon macros to determine when special functionality, such
     such as thread building blocks, should be used. When this file is used
     to generate the build system that is then used to build the dynamic library,
@@ -54,11 +64,13 @@ The dependency tree is:
         DL: GMP 
         DL: Wenzel Jakob's tbb fork 
         HO: IGL
-            DL: Eigen
+            HO: Eigen
         HO: Jeremie Dumas' Json fork 
         HO: spdlog
         DL: System
         DL: stdc++ 
+
+    The full dependency tree, with version numbers, is pictured in notes/dependency_tree.xopp.
 ]]
 
 cmake_minimum_required(VERSION 3.26)
