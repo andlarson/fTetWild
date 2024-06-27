@@ -28,7 +28,9 @@ This file was created because the cmake system provided with fTetWild only build
                   |
     igl_v0.a/.so, geogram_v0.a/.so, etc.
 
-    This avoids symbol redefinition errors at link time.
+    This avoids symbol redefinition errors at link time provided that fTetWild.so
+        does not re-export the symbols from the dynamic libraries it links
+        against.
 
     However, it turns out I was missing a critical detail: The API exposed
         by fTetWild.so includes objects from its dependencies. For example,
@@ -37,11 +39,12 @@ This file was created because the cmake system provided with fTetWild only build
         linking against newer versions of the libraries (e.g., igl_v3.so,
         geogram_v3.so, etc.) may yield errors due to ABI incompatability -
         if the content of an Eigen Vec3 changed between eigen_v3.so and
-        eigen_c0.so, then hard to debug runtime errors will result.
+        eigen_v0.so, then hard to debug runtime errors will result if
+        v3 of Eigen is used.
     There is no good general solution to this problem. In this case, I've chosen
         to modify the interface exposed by the subset of fTetWild that we want
         to use so that it only depends on stdlib++. If the API provided by the
-        library was larger, I'm not sure what the best appraoch would be....
+        library was larger, I'm not sure what the best approach would be....
 
 The content of this file was mostly sourced from the CMakeLists.txt file that
     accompanies the fTetWild repository.
@@ -60,17 +63,17 @@ The dependency tree is:
     (Anything without listed dependencies only depends on system libraries)
 
     DL: fTetWild 
-        DL: Geogram                        
-        DL: GMP 
-        DL: Wenzel Jakob's tbb fork 
-        HO: IGL
-            HO: Eigen
-        HO: Jeremie Dumas' Json fork 
-        HO: spdlog
-        DL: System
-        DL: stdc++ 
+        DL: Yixin Yu's Geogram fork - v1.7.5
+        DL: GMP - system install, mine is v6.3.0
+        DL: Wenzel Jakob's TBB fork - based on TBB 2019v6 
+        HO: IGL - v2.3.0
+            HO: Eigen - v3.3.7
+            HO: Custom predicates library. 
+        HO: Jeremie Dumas' Json fork - based on v3.1.2
+        HO: spdlog - v1.3.1
+        DL: System - system install
+        DL: stdc++ - system install 
 
-    The full dependency tree, with version numbers, is pictured in notes/dependency_tree.xopp.
 ]]
 
 cmake_minimum_required(VERSION 3.26)
